@@ -42,25 +42,6 @@ app.get('/api/health', (req, res) => {
   });
 });
 
-// Catch-all handler for SPA routing - FIXED
-app.get('/*', (req, res) => {
-  if (req.path.startsWith('/api/')) {
-    res.status(404).json({ message: 'API endpoint not found' });
-  } else {
-    res.sendFile(path.join(__dirname, 'public', 'index.html'));
-  }
-});
-
-// Global error handler
-app.use((err, req, res, next) => {
-  console.error('Unhandled error:', err);
-  res.status(500).json({ 
-    message: process.env.NODE_ENV === 'production' 
-      ? 'Internal server error' 
-      : err.message 
-  });
-});
-
 // WebRTC ICE servers configuration
 const iceServers = {
   iceServers: [
@@ -161,11 +142,11 @@ io.on('connection', (socket) => {
           $regex: query.trim(), 
           $options: 'i' 
         },
-        _id: { $ne: socket.userId } // Exclude current user
+        _id: { $ne: socket.userId }
       })
       .select('username online lastSeen')
       .limit(20)
-      .sort({ online: -1, username: 1 }); // Online users first, then alphabetical
+      .sort({ online: -1, username: 1 });
       
       socket.emit('search-results', { 
         users: users.map(user => ({
@@ -181,14 +162,13 @@ io.on('connection', (socket) => {
     }
   });
 
-  // Initiate call - works with any user (from search or history)
+  // Initiate call
   socket.on('call-user', async (data) => {
     try {
       const { callerId, callerName, calleeId, calleeUsername } = data;
       const User = require('./models/User');
       const CallHistory = require('./models/CallHistory');
       
-      // Find callee by ID or username
       let callee;
       if (calleeId) {
         callee = await User.findById(calleeId);
@@ -201,7 +181,6 @@ io.on('connection', (socket) => {
         return;
       }
       
-      // Save call history
       await CallHistory.findOneAndUpdate(
         {
           $or: [
@@ -217,7 +196,6 @@ io.on('connection', (socket) => {
         { upsert: true, new: true }
       );
       
-      // Send call request to callee
       io.to(callee.socketId).emit('incoming-call', {
         callerId,
         callerName,
@@ -318,13 +296,31 @@ io.on('connection', (socket) => {
           lastSeen: new Date()
         });
         
-        // Broadcast user offline status
         socket.broadcast.emit('user-offline', { userId: socket.userId });
         console.log(`User ${socket.userId} disconnected`);
       }
     } catch (error) {
       console.error('Error handling disconnect:', error);
     }
+  });
+});
+
+// Catch-all handler for SPA routing - serve index.html for non-API routes
+app.get('*', (req, res) => {
+  if (req.path.startsWith('/api/')) {
+    res.status(404).json({ message: 'API endpoint not found' });
+  } else {
+    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+  }
+});
+
+// Global error handler
+app.use((err, req, res, next) => {
+  console.error('Unhandled error:', err);
+  res.status(500).json({ 
+    message: process.env.NODE_ENV === 'production' 
+      ? 'Internal server error' 
+      : err.message 
   });
 });
 
