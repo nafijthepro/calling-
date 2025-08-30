@@ -7,7 +7,6 @@ const path = require('path');
 const connectDB = require('./database/connection');
 const authRoutes = require('./routes/auth');
 const userRoutes = require('./routes/users');
-const { authenticateSocket } = require('./middleware/auth');
 const securityMiddleware = require('./middleware/security');
 const compression = require('compression');
 
@@ -25,8 +24,8 @@ connectDB();
 
 // Middleware
 securityMiddleware(app);
-app.use(compression());
 app.use(cors());
+app.use(compression());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
@@ -43,8 +42,8 @@ app.get('/api/health', (req, res) => {
   });
 });
 
-// 404 handler
-app.use('*', (req, res) => {
+// Catch-all handler for SPA routing - FIXED
+app.get('/*', (req, res) => {
   if (req.path.startsWith('/api/')) {
     res.status(404).json({ message: 'API endpoint not found' });
   } else {
@@ -282,30 +281,11 @@ io.on('connection', (socket) => {
     }
   });
 
-  // Handle disconnect
-  socket.on('disconnect', async () => {
-    try {
-      if (socket.userId) {
-        const User = require('./models/User');
-        await User.findByIdAndUpdate(socket.userId, {
-          online: false,
-          socketId: null,
-          lastSeen: new Date()
-        });
-        
-        // Broadcast user offline status
-        socket.broadcast.emit('user-offline', { userId: socket.userId });
-        console.log(`User ${socket.userId} disconnected`);
-      }
-    } catch (error) {
-      console.error('Error handling disconnect:', error);
-    }
-  });
-  
   // Handle call end with duration tracking
   socket.on('call-ended-with-duration', async (data) => {
     try {
       const { callerId, calleeId, duration } = data;
+      const CallHistory = require('./models/CallHistory');
       
       await CallHistory.findOneAndUpdate(
         {
@@ -324,6 +304,26 @@ io.on('connection', (socket) => {
       console.log(`Call ended between ${callerId} and ${calleeId}, duration: ${duration}s`);
     } catch (error) {
       console.error('Error updating call duration:', error);
+    }
+  });
+
+  // Handle disconnect
+  socket.on('disconnect', async () => {
+    try {
+      if (socket.userId) {
+        const User = require('./models/User');
+        await User.findByIdAndUpdate(socket.userId, {
+          online: false,
+          socketId: null,
+          lastSeen: new Date()
+        });
+        
+        // Broadcast user offline status
+        socket.broadcast.emit('user-offline', { userId: socket.userId });
+        console.log(`User ${socket.userId} disconnected`);
+      }
+    } catch (error) {
+      console.error('Error handling disconnect:', error);
     }
   });
 });
