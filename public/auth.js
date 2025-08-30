@@ -69,7 +69,7 @@ class AuthManager {
                 headers: {
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify({ username, password })
+                body: JSON.stringify({ username: username.toLowerCase(), password })
             });
 
             const data = await response.json();
@@ -83,7 +83,7 @@ class AuthManager {
                 this.showToast('Login successful!', 'success');
                 setTimeout(() => this.showContactsScreen(), 1000);
             } else {
-                this.showToast(data.message || 'Login failed', 'error');
+                this.showToast(data.message || data.errors?.[0]?.msg || 'Login failed', 'error');
             }
         } catch (error) {
             console.error('Login error:', error);
@@ -112,27 +112,13 @@ class AuthManager {
             return;
         }
 
-        if (username.length < 3 || username.length > 20) {
-            this.showToast('Username must be 3-20 characters long', 'error');
-            submitBtn.innerHTML = originalText;
-            submitBtn.disabled = false;
-            return;
-        }
-
-        if (password.length < 6) {
-            this.showToast('Password must be at least 6 characters long', 'error');
-            submitBtn.innerHTML = originalText;
-            submitBtn.disabled = false;
-            return;
-        }
-
         try {
             const response = await fetch('/api/auth/register', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify({ username, password })
+                body: JSON.stringify({ username: username.toLowerCase(), password })
             });
 
             const data = await response.json();
@@ -146,7 +132,7 @@ class AuthManager {
                 this.showToast('Registration successful!', 'success');
                 setTimeout(() => this.showContactsScreen(), 1000);
             } else {
-                this.showToast(data.message || 'Registration failed', 'error');
+                this.showToast(data.message || data.errors?.[0]?.msg || 'Registration failed', 'error');
             }
         } catch (error) {
             console.error('Registration error:', error);

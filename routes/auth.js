@@ -2,35 +2,24 @@ const express = require('express');
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 const { authenticateToken } = require('../middleware/auth');
+const { validateRegistration, validateLogin, handleValidationErrors } = require('../middleware/validation');
+const { authLimiter } = require('../middleware/rateLimiter');
 
 const router = express.Router();
 
 // Register
-router.post('/register', async (req, res) => {
+router.post('/register', authLimiter, validateRegistration, handleValidationErrors, async (req, res) => {
   try {
     const { username, password } = req.body;
 
-    // Validation
-    if (!username || !password) {
-      return res.status(400).json({ message: 'Username and password are required' });
-    }
-
-    if (username.length < 3 || username.length > 20) {
-      return res.status(400).json({ message: 'Username must be 3-20 characters long' });
-    }
-
-    if (password.length < 6) {
-      return res.status(400).json({ message: 'Password must be at least 6 characters long' });
-    }
-
     // Check if user already exists
-    const existingUser = await User.findOne({ username });
+    const existingUser = await User.findOne({ username: username.toLowerCase() });
     if (existingUser) {
       return res.status(400).json({ message: 'Username already exists' });
     }
 
     // Create new user
-    const user = new User({ username, password });
+    const user = new User({ username: username.toLowerCase(), password });
     await user.save();
 
     // Generate JWT token
@@ -55,17 +44,12 @@ router.post('/register', async (req, res) => {
 });
 
 // Login
-router.post('/login', async (req, res) => {
+router.post('/login', authLimiter, validateLogin, handleValidationErrors, async (req, res) => {
   try {
     const { username, password } = req.body;
 
-    // Validation
-    if (!username || !password) {
-      return res.status(400).json({ message: 'Username and password are required' });
-    }
-
     // Find user
-    const user = await User.findOne({ username });
+    const user = await User.findOne({ username: username.toLowerCase() });
     if (!user) {
       return res.status(400).json({ message: 'Invalid credentials' });
     }

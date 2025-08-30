@@ -1,22 +1,28 @@
 class AudioCallApp {
     constructor() {
         this.socket = null;
-        this.contacts = [];
-        this.filteredContacts = [];
+        this.callHistory = [];
+        this.searchResults = [];
+        this.currentView = 'history'; // 'history' or 'search'
         this.currentCall = null;
         this.ringtoneContext = null;
+        this.searchTimeout = null;
         this.initialize();
     }
 
     initialize() {
         // Search functionality
         document.getElementById('search-input').addEventListener('input', (e) => {
-            this.filterContacts(e.target.value);
+            this.handleSearch(e.target.value);
         });
 
-        // Clear list button
-        document.getElementById('clear-list-btn').addEventListener('click', () => {
-            this.clearContactsList();
+        // View toggle buttons
+        document.getElementById('history-tab').addEventListener('click', () => {
+            this.switchToHistoryView();
+        });
+
+        document.getElementById('search-tab').addEventListener('click', () => {
+            this.switchToSearchView();
         });
 
         // Call controls
@@ -62,17 +68,25 @@ class AudioCallApp {
         this.socket.on('connect', () => {
             console.log('Connected to server');
             this.socket.emit('register-socket', { userId: window.authManager.user.id });
-            this.loadContacts();
+            this.loadCallHistory();
         });
 
         this.socket.on('disconnect', () => {
             console.log('Disconnected from server');
         });
 
-        this.socket.on('call-list', (contacts) => {
-            this.contacts = contacts;
-            this.filteredContacts = [...contacts];
-            this.renderContacts();
+        this.socket.on('call-list', (history) => {
+            this.callHistory = history;
+            if (this.currentView === 'history') {
+                this.renderCallHistory();
+            }
+        });
+
+        this.socket.on('search-results', (results) => {
+            this.searchResults = results.users || [];
+            if (this.currentView === 'search') {
+                this.renderSearchResults();
+            }
         });
 
         this.socket.on('incoming-call', (data) => {
@@ -123,42 +137,97 @@ class AudioCallApp {
         });
     }
 
-    loadContacts() {
-        this.showContactsLoading();
+    handleSearch(searchTerm) {
+        clearTimeout(this.searchTimeout);
+        
+        if (searchTerm.trim().length === 0) {
+            this.switchToHistoryView();
+            return;
+        }
+
+        if (searchTerm.trim().length < 2) {
+            this.searchResults = [];
+            if (this.currentView === 'search') {
+                this.renderSearchResults();
+            }
+            return;
+        }
+
+        this.searchTimeout = setTimeout(() => {
+            this.switchToSearchView();
+            this.searchUsers(searchTerm.trim());
+        }, 300);
+    }
+
+    switchToHistoryView() {
+        this.currentView = 'history';
+        document.getElementById('history-tab').classList.add('active');
+        document.getElementById('search-tab').classList.remove('active');
+        this.renderCallHistory();
+    }
+
+    switchToSearchView() {
+        this.currentView = 'search';
+        document.getElementById('search-tab').classList.add('active');
+        document.getElementById('history-tab').classList.remove('active');
+        this.renderSearchResults();
+    }
+
+    searchUsers(query) {
+        this.showSearchLoading();
+        if (this.socket) {
+            this.socket.emit('search-users', { query });
+        }
+    }
+
+    loadCallHistory() {
+        this.showHistoryLoading();
         if (this.socket) {
             this.socket.emit('get-call-list', { userId: window.authManager.user.id });
         }
     }
 
-    showContactsLoading() {
+    showHistoryLoading() {
         const contactsList = document.getElementById('contacts-list');
-        const noContacts = document.getElementById('no-contacts');
-        const loadingSkeleton = document.getElementById('contacts-loading');
+        const noHistory = document.getElementById('no-history');
+        const loadingSkeleton = document.getElementById('history-loading');
         
-        noContacts.style.display = 'none';
+        noHistory.style.display = 'none';
         loadingSkeleton.style.display = 'block';
         contactsList.innerHTML = '';
         contactsList.appendChild(loadingSkeleton);
     }
 
-    renderContacts() {
+    showSearchLoading() {
         const contactsList = document.getElementById('contacts-list');
-        const noContacts = document.getElementById('no-contacts');
-        const loadingSkeleton = document.getElementById('contacts-loading');
+        const noResults = document.getElementById('no-search-results');
+        const loadingSkeleton = document.getElementById('search-loading');
+        
+        noResults.style.display = 'none';
+        loadingSkeleton.style.display = 'none';
+        contactsList.innerHTML = '';
+        contactsList.appendChild(loadingSkeleton);
+        loadingSkeleton.style.display = 'block';
+    }
+
+    renderCallHistory() {
+        const contactsList = document.getElementById('contacts-list');
+        const noHistory = document.getElementById('no-history');
+        const loadingSkeleton = document.getElementById('history-loading');
         
         loadingSkeleton.style.display = 'none';
 
-        if (this.filteredContacts.length === 0) {
+        if (this.callHistory.length === 0) {
             contactsList.innerHTML = '';
-            noContacts.style.display = 'block';
-            contactsList.appendChild(noContacts);
+            noHistory.style.display = 'block';
+            contactsList.appendChild(noHistory);
             return;
         }
 
-        noContacts.style.display = 'none';
+        noHistory.style.display = 'none';
         contactsList.innerHTML = '';
 
-        this.filteredContacts.forEach(contact => {
+        this.callHistory.forEach(contact => {
             const contactItem = document.createElement('div');
             contactItem.className = 'contact-item fade-in';
             
@@ -195,6 +264,60 @@ class AudioCallApp {
         });
     }
 
+    renderSearchResults() {
+        const contactsList = document.getElementById('contacts-list');
+        const noResults = document.getElementById('no-search-results');
+        const loadingSkeleton = document.getElementById('search-loading');
+        
+        loadingSkeleton.style.display = 'none';
+
+        if (this.searchResults.length === 0) {
+            contactsList.innerHTML = '';
+            noResults.style.display = 'block';
+            contactsList.appendChild(noResults);
+            return;
+        }
+
+        noResults.style.display = 'none';
+        contactsList.innerHTML = '';
+
+        this.searchResults.forEach(user => {
+            const contactItem = document.createElement('div');
+            contactItem.className = 'contact-item fade-in';
+            
+            const lastSeenDate = new Date(user.lastSeen);
+            const timeAgo = this.getTimeAgo(lastSeenDate);
+            
+            contactItem.innerHTML = `
+                <div class="contact-avatar">
+                    <i class="fas fa-user"></i>
+                    ${user.online ? '<div class="online-indicator"></div>' : ''}
+                </div>
+                <div class="contact-info">
+                    <div class="contact-name">${user.username}</div>
+                    <div class="contact-status">
+                        <span class="status-dot ${user.online ? 'status-online' : 'status-offline'}"></span>
+                        ${user.online ? 'Online' : `Last seen ${timeAgo}`}
+                    </div>
+                </div>
+                <div class="contact-actions">
+                    <button class="call-btn" data-contact-id="${user._id}" data-contact-name="${user.username}" ${!user.online ? 'disabled' : ''}>
+                        <i class="fas fa-phone"></i>
+                    </button>
+                </div>
+            `;
+
+            const callBtn = contactItem.querySelector('.call-btn');
+            callBtn.addEventListener('click', () => {
+                if (user.online) {
+                    this.initiateCall(user._id, user.username);
+                }
+            });
+
+            contactsList.appendChild(contactItem);
+        });
+    }
+
     getTimeAgo(date) {
         const now = new Date();
         const diffInSeconds = Math.floor((now - date) / 1000);
@@ -204,21 +327,6 @@ class AudioCallApp {
         if (diffInSeconds < 86400) return `${Math.floor(diffInSeconds / 3600)}h ago`;
         if (diffInSeconds < 604800) return `${Math.floor(diffInSeconds / 86400)}d ago`;
         return date.toLocaleDateString();
-    }
-
-    filterContacts(searchTerm) {
-        this.filteredContacts = this.contacts.filter(contact =>
-            contact.username.toLowerCase().includes(searchTerm.toLowerCase())
-        );
-        this.renderContacts();
-    }
-
-    clearContactsList() {
-        document.getElementById('search-input').value = '';
-        this.contacts = [];
-        this.filteredContacts = [];
-        this.renderContacts();
-        window.authManager.showToast('Contact list cleared', 'success');
     }
 
     async initiateCall(calleeId, calleeName) {
@@ -391,17 +499,33 @@ class AudioCallApp {
     returnToContacts() {
         window.authManager.hideAllScreens();
         document.getElementById('contacts-screen').classList.add('active');
-        this.loadContacts();
+        this.loadCallHistory();
     }
 
     updateUserOnlineStatus(userId, online) {
-        const contact = this.contacts.find(c => c._id === userId);
-        if (contact) {
-            contact.online = online;
+        // Update in call history
+        const historyContact = this.callHistory.find(c => c._id === userId);
+        if (historyContact) {
+            historyContact.online = online;
             if (!online) {
-                contact.lastSeen = new Date();
+                historyContact.lastSeen = new Date();
             }
-            this.renderContacts();
+        }
+
+        // Update in search results
+        const searchContact = this.searchResults.find(c => c._id === userId);
+        if (searchContact) {
+            searchContact.online = online;
+            if (!online) {
+                searchContact.lastSeen = new Date();
+            }
+        }
+
+        // Re-render current view
+        if (this.currentView === 'history') {
+            this.renderCallHistory();
+        } else {
+            this.renderSearchResults();
         }
     }
 
@@ -432,7 +556,7 @@ document.addEventListener('visibilitychange', () => {
         console.log('App went to background during call');
     } else if (!document.hidden && window.app && window.app.socket) {
         // Refresh contacts when app comes back to foreground
-        window.app.loadContacts();
+        window.app.loadCallHistory();
     }
 });
 

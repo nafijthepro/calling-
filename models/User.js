@@ -8,7 +8,9 @@ const userSchema = new mongoose.Schema({
     unique: true,
     trim: true,
     minlength: 3,
-    maxlength: 20
+    maxlength: 20,
+    lowercase: true,
+    index: true
   },
   password: {
     type: String,
@@ -21,7 +23,8 @@ const userSchema = new mongoose.Schema({
   },
   online: {
     type: Boolean,
-    default: false
+    default: false,
+    index: true
   },
   lastSeen: {
     type: Date,
@@ -30,6 +33,10 @@ const userSchema = new mongoose.Schema({
 }, {
   timestamps: true
 });
+
+// Create compound index for search optimization
+userSchema.index({ username: 'text' });
+userSchema.index({ online: -1, username: 1 });
 
 // Hash password before saving
 userSchema.pre('save', async function(next) {

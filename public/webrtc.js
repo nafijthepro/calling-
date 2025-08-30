@@ -216,7 +216,7 @@ class WebRTCManager {
             
             // Refresh contacts list
             if (window.app) {
-                window.app.loadContacts();
+                window.app.loadCallHistory();
             }
         }, 1000);
     }

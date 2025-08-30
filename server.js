@@ -6,7 +6,11 @@ const cors = require('cors');
 const path = require('path');
 const connectDB = require('./database/connection');
 const authRoutes = require('./routes/auth');
+const userRoutes = require('./routes/users');
 const { authenticateSocket } = require('./middleware/auth');
+const { apiLimiter } = require('./middleware/rateLimiter');
+const helmet = require('helmet');
+const compression = require('compression');
 
 const app = express();
 const server = http.createServer(app);
@@ -21,12 +25,55 @@ const io = socketIo(server, {
 connectDB();
 
 // Middleware
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      styleSrc: ["'self'", "'unsafe-inline'", "https://cdnjs.cloudflare.com"],
+      scriptSrc: ["'self'", "'unsafe-inline'"],
+      fontSrc: ["'self'", "https://cdnjs.cloudflare.com"],
+      connectSrc: ["'self'", "ws:", "wss:"],
+      mediaSrc: ["'self'"]
+    }
+  }
+}));
+app.use(compression());
 app.use(cors());
 app.use(express.json());
+app.use(apiLimiter);
 app.use(express.static(path.join(__dirname, 'public')));
 
 // Routes
 app.use('/api/auth', authRoutes);
+app.use('/api/users', userRoutes);
+
+// Health check endpoint
+app.get('/api/health', (req, res) => {
+  res.json({ 
+    status: 'OK', 
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime()
+  });
+});
+
+// 404 handler
+app.use('*', (req, res) => {
+  if (req.path.startsWith('/api/')) {
+    res.status(404).json({ message: 'API endpoint not found' });
+  } else {
+    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+  }
+});
+
+// Global error handler
+app.use((err, req, res, next) => {
+  console.error('Unhandled error:', err);
+  res.status(500).json({ 
+    message: process.env.NODE_ENV === 'production' 
+      ? 'Internal server error' 
+      : err.message 
+  });
+});
 
 // WebRTC ICE servers configuration
 const iceServers = {
@@ -109,6 +156,42 @@ io.on('connection', (socket) => {
     } catch (error) {
       console.error('Error getting call list:', error);
       socket.emit('call-list', []);
+    }
+  });
+
+  // Search users
+  socket.on('search-users', async (data) => {
+    try {
+      const { query } = data;
+      const User = require('./models/User');
+      
+      if (!query || query.trim().length < 2) {
+        socket.emit('search-results', { users: [] });
+        return;
+      }
+      
+      const users = await User.find({
+        username: { 
+          $regex: query.trim(), 
+          $options: 'i' 
+        },
+        _id: { $ne: socket.userId } // Exclude current user
+      })
+      .select('username online lastSeen')
+      .limit(20)
+      .sort({ online: -1, username: 1 }); // Online users first, then alphabetical
+      
+      socket.emit('search-results', { 
+        users: users.map(user => ({
+          _id: user._id,
+          username: user.username,
+          online: user.online,
+          lastSeen: user.lastSeen
+        }))
+      });
+    } catch (error) {
+      console.error('Error searching users:', error);
+      socket.emit('search-results', { users: [] });
     }
   });
 
@@ -252,4 +335,22 @@ const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
   console.log(`AudioCallPro server running on port ${PORT}`);
   console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
+  console.log(`Health check available at: http://localhost:${PORT}/api/health`);
+});
+
+// Graceful shutdown
+process.on('SIGTERM', () => {
+  console.log('SIGTERM received, shutting down gracefully');
+  server.close(() => {
+    console.log('Process terminated');
+    process.exit(0);
+  });
+});
+
+process.on('SIGINT', () => {
+  console.log('SIGINT received, shutting down gracefully');
+  server.close(() => {
+    console.log('Process terminated');
+    process.exit(0);
+  });
 });
