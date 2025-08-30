@@ -3,12 +3,11 @@ const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 const { authenticateToken } = require('../middleware/auth');
 const { validateRegistration, validateLogin, handleValidationErrors } = require('../middleware/validation');
-const { authLimiter } = require('../middleware/rateLimiter');
 
 const router = express.Router();
 
 // Register
-router.post('/register', authLimiter, validateRegistration, handleValidationErrors, async (req, res) => {
+router.post('/register', validateRegistration, handleValidationErrors, async (req, res) => {
   try {
     const { username, password } = req.body;
 
@@ -44,7 +43,7 @@ router.post('/register', authLimiter, validateRegistration, handleValidationErro
 });
 
 // Login
-router.post('/login', authLimiter, validateLogin, handleValidationErrors, async (req, res) => {
+router.post('/login', validateLogin, handleValidationErrors, async (req, res) => {
   try {
     const { username, password } = req.body;
 

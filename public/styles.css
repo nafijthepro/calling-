@@ -396,6 +396,7 @@ body {
     border-bottom: 1px solid transparent;
     margin: 0 -1rem;
     padding: 1.2rem 1rem;
+    transform: translateX(4px);
 }
 
 .contact-item:last-child {
@@ -489,6 +490,7 @@ body {
     cursor: not-allowed;
     transform: none;
     box-shadow: none;
+    opacity: 0.5;
 }
 
 .no-contacts {

@@ -81,6 +81,10 @@ class AuthManager {
                 localStorage.setItem('user', JSON.stringify(this.user));
                 
                 this.showToast('Login successful!', 'success');
+                
+                // Clear form
+                document.getElementById('login-form').reset();
+                
                 setTimeout(() => this.showContactsScreen(), 1000);
             } else {
                 this.showToast(data.message || data.errors?.[0]?.msg || 'Login failed', 'error');
@@ -130,6 +134,10 @@ class AuthManager {
                 localStorage.setItem('user', JSON.stringify(this.user));
                 
                 this.showToast('Registration successful!', 'success');
+                
+                // Clear form
+                document.getElementById('register-form').reset();
+                
                 setTimeout(() => this.showContactsScreen(), 1000);
             } else {
                 this.showToast(data.message || data.errors?.[0]?.msg || 'Registration failed', 'error');

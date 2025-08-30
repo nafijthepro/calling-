@@ -8,8 +8,7 @@ const connectDB = require('./database/connection');
 const authRoutes = require('./routes/auth');
 const userRoutes = require('./routes/users');
 const { authenticateSocket } = require('./middleware/auth');
-const { apiLimiter } = require('./middleware/rateLimiter');
-const helmet = require('helmet');
+const securityMiddleware = require('./middleware/security');
 const compression = require('compression');
 
 const app = express();
@@ -25,22 +24,10 @@ const io = socketIo(server, {
 connectDB();
 
 // Middleware
-app.use(helmet({
-  contentSecurityPolicy: {
-    directives: {
-      defaultSrc: ["'self'"],
-      styleSrc: ["'self'", "'unsafe-inline'", "https://cdnjs.cloudflare.com"],
-      scriptSrc: ["'self'", "'unsafe-inline'"],
-      fontSrc: ["'self'", "https://cdnjs.cloudflare.com"],
-      connectSrc: ["'self'", "ws:", "wss:"],
-      mediaSrc: ["'self'"]
-    }
-  }
-}));
+securityMiddleware(app);
 app.use(compression());
 app.use(cors());
 app.use(express.json());
-app.use(apiLimiter);
 app.use(express.static(path.join(__dirname, 'public')));
 
 // Routes
@@ -195,14 +182,21 @@ io.on('connection', (socket) => {
     }
   });
 
-  // Initiate call
+  // Initiate call - works with any user (from search or history)
   socket.on('call-user', async (data) => {
     try {
-      const { callerId, callerName, calleeId } = data;
+      const { callerId, callerName, calleeId, calleeUsername } = data;
       const User = require('./models/User');
       const CallHistory = require('./models/CallHistory');
       
-      const callee = await User.findById(calleeId);
+      // Find callee by ID or username
+      let callee;
+      if (calleeId) {
+        callee = await User.findById(calleeId);
+      } else if (calleeUsername) {
+        callee = await User.findOne({ username: calleeUsername.toLowerCase() });
+      }
+      
       if (!callee || !callee.online || !callee.socketId) {
         socket.emit('call-failed', { message: 'User is offline' });
         return;
@@ -212,13 +206,13 @@ io.on('connection', (socket) => {
       await CallHistory.findOneAndUpdate(
         {
           $or: [
-            { user1: callerId, user2: calleeId },
-            { user1: calleeId, user2: callerId }
+            { user1: callerId, user2: callee._id },
+            { user1: callee._id, user2: callerId }
           ]
         },
         {
           user1: callerId,
-          user2: calleeId,
+          user2: callee._id,
           lastCalled: new Date()
         },
         { upsert: true, new: true }
@@ -232,7 +226,10 @@ io.on('connection', (socket) => {
         iceServers
       });
       
-      socket.emit('call-initiated', { calleeId, calleeName: callee.username });
+      socket.emit('call-initiated', { 
+        calleeId: callee._id, 
+        calleeName: callee.username 
+      });
     } catch (error) {
       console.error('Error initiating call:', error);
       socket.emit('call-failed', { message: 'Failed to initiate call' });

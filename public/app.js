@@ -18,11 +18,13 @@ class AudioCallApp {
 
         // View toggle buttons
         document.getElementById('history-tab').addEventListener('click', () => {
+            document.getElementById('search-input').value = '';
             this.switchToHistoryView();
         });
 
         document.getElementById('search-tab').addEventListener('click', () => {
             this.switchToSearchView();
+            document.getElementById('search-input').focus();
         });
 
         // Call controls
@@ -83,6 +85,7 @@ class AudioCallApp {
         });
 
         this.socket.on('search-results', (results) => {
+            console.log('Search results received:', results);
             this.searchResults = results.users || [];
             if (this.currentView === 'search') {
                 this.renderSearchResults();
@@ -142,6 +145,7 @@ class AudioCallApp {
         
         if (searchTerm.trim().length === 0) {
             this.switchToHistoryView();
+            document.getElementById('search-input').value = '';
             return;
         }
 
@@ -176,6 +180,7 @@ class AudioCallApp {
     searchUsers(query) {
         this.showSearchLoading();
         if (this.socket) {
+            console.log('Searching for users with query:', query);
             this.socket.emit('search-users', { query });
         }
     }
@@ -285,8 +290,16 @@ class AudioCallApp {
             const contactItem = document.createElement('div');
             contactItem.className = 'contact-item fade-in';
             
-            const lastSeenDate = new Date(user.lastSeen);
-            const timeAgo = this.getTimeAgo(lastSeenDate);
+            let statusText = '';
+            if (user.online) {
+                statusText = 'Online';
+            } else if (user.lastSeen) {
+                const lastSeenDate = new Date(user.lastSeen);
+                const timeAgo = this.getTimeAgo(lastSeenDate);
+                statusText = `Last seen ${timeAgo}`;
+            } else {
+                statusText = 'Offline';
+            }
             
             contactItem.innerHTML = `
                 <div class="contact-avatar">
@@ -297,7 +310,7 @@ class AudioCallApp {
                     <div class="contact-name">${user.username}</div>
                     <div class="contact-status">
                         <span class="status-dot ${user.online ? 'status-online' : 'status-offline'}"></span>
-                        ${user.online ? 'Online' : `Last seen ${timeAgo}`}
+                        ${statusText}
                     </div>
                 </div>
                 <div class="contact-actions">
@@ -350,7 +363,8 @@ class AudioCallApp {
         this.socket.emit('call-user', {
             callerId: window.authManager.user.id,
             callerName: window.authManager.user.username,
-            calleeId: calleeId
+            calleeId: calleeId,
+            calleeUsername: calleeName
         });
     }
 
@@ -524,7 +538,7 @@ class AudioCallApp {
         // Re-render current view
         if (this.currentView === 'history') {
             this.renderCallHistory();
-        } else {
+        } else if (this.currentView === 'search') {
             this.renderSearchResults();
         }
     }
