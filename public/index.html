@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AudioCallPro - Audio Calling App</title>
+    <link rel="stylesheet" href="styles.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+</head>
+<body>
+    <!-- Login/Register Screen -->
+    <div id="auth-screen" class="screen active">
+        <div class="auth-container">
+            <div class="app-header">
+                <div class="app-logo">
+                    <i class="fas fa-phone-alt"></i>
+                </div>
+                <h1>AudioCallPro</h1>
+                <p>WhatsApp-style Audio Calling</p>
+            </div>
+
+            <div class="auth-tabs">
+                <button id="login-tab" class="tab-button active">Login</button>
+                <button id="register-tab" class="tab-button">Register</button>
+            </div>
+
+            <!-- Login Form -->
+            <form id="login-form" class="auth-form active">
+                <div class="input-group">
+                    <i class="fas fa-user"></i>
+                    <input type="text" id="login-username" placeholder="Username" required>
+                </div>
+                <div class="input-group">
+                    <i class="fas fa-lock"></i>
+                    <input type="password" id="login-password" placeholder="Password" required>
+                </div>
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-sign-in-alt"></i>
+                    Login
+                </button>
+            </form>
+
+            <!-- Register Form -->
+            <form id="register-form" class="auth-form">
+                <div class="input-group">
+                    <i class="fas fa-user"></i>
+                    <input type="text" id="register-username" placeholder="Username (3-20 chars)" required>
+                </div>
+                <div class="input-group">
+                    <i class="fas fa-lock"></i>
+                    <input type="password" id="register-password" placeholder="Password (min 6 chars)" required>
+                </div>
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-user-plus"></i>
+                    Register
+                </button>
+            </form>
+
+            <!-- Developer Profile -->
+            <div class="developer-profile">
+                <img src="https://images.pexels.com/photos/2379004/pexels-photo-2379004.jpeg?auto=compress&cs=tinysrgb&w=400" alt="Developer" class="developer-image">
+                <p class="developer-text">THIS WEBSITE IS CREATED BY NAFIJ RAHAMAN</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Contacts Screen -->
+    <div id="contacts-screen" class="screen">
+        <div class="contacts-container">
+            <div class="header">
+                <div class="header-left">
+                    <h2>AudioCallPro</h2>
+                    <span id="username-display" class="username"></span>
+                </div>
+                <button id="logout-btn" class="btn btn-secondary">
+                    <i class="fas fa-sign-out-alt"></i>
+                </button>
+            </div>
+
+            <div class="search-container">
+                <div class="search-box">
+                    <i class="fas fa-search"></i>
+                    <input type="text" id="search-input" placeholder="Search contacts...">
+                </div>
+                <div class="clear-list-container">
+                    <button id="clear-list-btn" class="btn btn-secondary">
+                        <i class="fas fa-trash"></i>
+                        Clear List
+                    </button>
+                </div>
+            </div>
+
+            <div class="contacts-list" id="contacts-list">
+                <div class="no-contacts" id="no-contacts">
+                    <i class="fas fa-phone-slash"></i>
+                    <p>No previous call contacts</p>
+                    <span>Users you've called will appear here</span>
+                </div>
+                
+                <!-- Loading skeleton for contacts -->
+                <div id="contacts-loading" style="display: none;">
+                    <div class="contact-skeleton">
+                        <div class="skeleton skeleton-avatar"></div>
+                        <div class="skeleton-info">
+                            <div class="skeleton skeleton-name"></div>
+                            <div class="skeleton skeleton-status"></div>
+                        </div>
+                        <div class="skeleton skeleton-btn"></div>
+                    </div>
+                    <div class="contact-skeleton">
+                        <div class="skeleton skeleton-avatar"></div>
+                        <div class="skeleton-info">
+                            <div class="skeleton skeleton-name"></div>
+                            <div class="skeleton skeleton-status"></div>
+                        </div>
+                        <div class="skeleton skeleton-btn"></div>
+                    </div>
+                    <div class="contact-skeleton">
+                        <div class="skeleton skeleton-avatar"></div>
+                        <div class="skeleton-info">
+                            <div class="skeleton skeleton-name"></div>
+                            <div class="skeleton skeleton-status"></div>
+                        </div>
+                        <div class="skeleton skeleton-btn"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Call Screen -->
+    <div id="call-screen" class="screen">
+        <div class="call-container">
+            <div class="call-header">
+                <div class="call-status" id="call-status">Connecting...</div>
+                <div class="call-timer" id="call-timer">00:00:00</div>
+            </div>
+
+            <div class="call-avatar">
+                <div class="avatar-circle">
+                    <i class="fas fa-user"></i>
+                </div>
+                <h3 id="call-partner-name">Unknown</h3>
+                <p id="call-status-text">Calling...</p>
+            </div>
+
+            <div class="call-controls">
+                <button id="decline-btn" class="call-btn decline-btn">
+                    <i class="fas fa-phone-slash"></i>
+                </button>
+                <button id="accept-btn" class="call-btn accept-btn" style="display: none;">
+                    <i class="fas fa-phone"></i>
+                </button>
+                <button id="end-call-btn" class="call-btn end-call-btn" style="display: none;">
+                    <i class="fas fa-phone-slash"></i>
+                </button>
+                <button id="mute-btn" class="call-btn mute-btn" style="display: none;">
+                    <i class="fas fa-microphone"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Permission Screen -->
+    <div id="permission-screen" class="screen">
+        <div class="permission-container">
+            <div class="permission-icon">
+                <i class="fas fa-microphone-slash"></i>
+            </div>
+            <h2>Microphone Permission Required</h2>
+            <p>THIS APP CAN'T RUN WITHOUT MICROPHONE PERMISSION</p>
+            <button id="grant-permission-btn" class="btn btn-primary">
+                <i class="fas fa-microphone"></i>
+                GRANT PERMISSION
+            </button>
+            <div style="margin-top: 1.5rem; text-align: center;">
+                <small style="color: #8e8e93;">
+                    AudioCallPro needs microphone access to enable voice calls
+                </small>
+            </div>
+        </div>
+    </div>
+
+    <!-- Audio elements for WebRTC -->
+    <audio id="local-audio" muted autoplay></audio>
+    <audio id="remote-audio" autoplay></audio>
+    <audio id="ringtone" loop preload="auto"></audio>
+
+    <!-- Scripts -->
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="auth.js"></script>
+    <script src="webrtc.js"></script>
+    <!-- Ringtone generation script -->
+    <script>
+        // Generate ringtone programmatically for better browser compatibility
+        const generateRingtone = () => {
+            const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+            
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+            
+            oscillator.frequency.setValueAtTime(800, audioContext.currentTime);
+            gainNode.gain.setValueAtTime(0.1, audioContext.currentTime);
+            
+            oscillator.start();
+            oscillator.stop(audioContext.currentTime + 0.5);
+            
+            return audioContext;
+        };
+    </script>
+    <script src="app.js"></script>
+</body>
+</html>
